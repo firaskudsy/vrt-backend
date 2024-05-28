@@ -1,23 +1,23 @@
-import { Controller, ParseUUIDPipe, Get, UseGuards, Param, Query, Delete } from '@nestjs/common';
+import { Controller, ParseUUIDPipe, Get, UseGuards, Param, Query, Delete, Inject } from '@nestjs/common';
 import { ApiTags, ApiParam, ApiBearerAuth, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
 import { TestVariationsService } from './test-variations.service';
-import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
-import { PrismaService } from '../prisma/prisma.service';
 import { BuildDto } from '../builds/dto/build.dto';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../shared/roles.decorator';
 import { MergeParams } from './types';
 import { BaseTestVariationDto } from './dto/base-test-variation.dto';
 import { TestVariationDto } from './dto/test-variation.dto';
-
+import { Role } from 'src/common/enums/enums';
+import { Pool } from 'pg';
+import { TestVariation } from 'src/common/interfaces/testvariation.interface';
 /* eslint-disable @darraghor/nestjs-typed/injectable-should-be-provided */
 @ApiTags('test-variations')
 @Controller('test-variations')
 export class TestVariationsController {
   constructor(
     private testVariations: TestVariationsService,
-    private prismaService: PrismaService
+    @Inject('DB_CONNECTION') private readonly pool: Pool
   ) {}
 
   @Get()
@@ -25,10 +25,8 @@ export class TestVariationsController {
   @ApiOkResponse({ type: BaseTestVariationDto, isArray: true })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  getList(@Query('projectId', new ParseUUIDPipe()) projectId: string): Promise<BaseTestVariationDto[]> {
-    return this.prismaService.testVariation.findMany({
-      where: { projectId },
-    });
+  async getList(@Query('projectId', new ParseUUIDPipe()) projectId: string): Promise<BaseTestVariationDto[]> {
+    return await this.pool.query('SELECT * FROM test_variations WHERE project_id = $1', [projectId]);
   }
 
   @Get('details/:id')
@@ -36,7 +34,7 @@ export class TestVariationsController {
   @ApiOkResponse({ type: TestVariationDto })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  getDetails(@Param('id', new ParseUUIDPipe()) id: string): Promise<TestVariationDto> {
+  async getDetails(@Param('id', new ParseUUIDPipe()) id: string): Promise<TestVariation> {
     return this.testVariations.getDetails(id);
   }
 

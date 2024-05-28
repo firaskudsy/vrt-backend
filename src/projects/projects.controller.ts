@@ -3,11 +3,12 @@ import { ApiTags, ApiBearerAuth, ApiOkResponse, ApiParam } from '@nestjs/swagger
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
-import { Project, Role } from '@prisma/client';
 import { ProjectDto } from './dto/project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../shared/roles.decorator';
+import { Role } from 'src/common/enums/enums';
+import { Project } from 'src/common/interfaces/project.interface';
 
 @Controller('projects')
 @ApiTags('projects')

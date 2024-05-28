@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TestStatus } from '@prisma/client';
 import { StaticService } from '../../../shared/static/static.service';
 import { DiffResult } from '../../../test-runs/diffResult';
 import { parseConfig } from '../../utils';
@@ -9,6 +8,7 @@ import { DIFF_DIMENSION_RESULT, NO_BASELINE_RESULT } from '../consts';
 import { compare } from 'odiff-bin';
 import { IgnoreAreaDto } from 'src/test-runs/dto/ignore-area.dto';
 import { OdiffConfig, OdiffIgnoreRegions, OdiffResult } from './odiff.types';
+import { TestStatus } from 'src/common/enums/enums';
 
 export const DEFAULT_CONFIG: OdiffConfig = {
   outputDiffMask: true,

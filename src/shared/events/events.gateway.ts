@@ -1,16 +1,17 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { Build, TestRun } from '@prisma/client';
 import { BuildDto } from '../../builds/dto/build.dto';
 import { debounce } from 'lodash';
-import { PrismaService } from '../../prisma/prisma.service';
-
+import { Pool } from 'pg';
+import { Inject } from '@nestjs/common';
+import { Build } from 'src/common/interfaces/build.interface';
+import { TestRun } from 'src/common/interfaces/testrun.interface';
 @WebSocketGateway({ cors: true })
 export class EventsGateway {
   @WebSocketServer()
   server: Server;
 
-  constructor(private prismaService: PrismaService) {}
+  constructor(@Inject('DB_CONNECTION') private readonly pool: Pool) {}
 
   private debounceTimeout = 1500;
   private maxWait = 3000;
@@ -90,24 +91,25 @@ export class EventsGateway {
 
   private buildUpdatedDebounced = debounce(
     () => {
-      this.prismaService.build
-        .findMany({
-          where: {
-            id: {
-              in: this.buildsUpdatedQueued,
-            },
-          },
-          include: {
-            testRuns: true,
-          },
-        })
-        .then((builds: Array<Build>) => {
+      const buildIds = this.buildsUpdatedQueued;
+      this.buildsUpdatedQueued = [];
+
+      const query = `
+        SELECT * FROM "Build"
+        WHERE id IN (${buildIds.map((id) => `'${id}'`).join(',')})
+      `;
+
+      this.pool.query(query)
+        .then((result) => {
+          const builds: Array<Build> = result.rows;
           this.server.emit(
             'build_updated',
             builds.map((build: Build) => new BuildDto(build))
           );
+        })
+        .catch((error) => {
+          console.error('Error fetching builds:', error);
         });
-      this.buildsUpdatedQueued = [];
     },
     this.debounceTimeout,
     {

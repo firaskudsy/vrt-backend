@@ -1,4 +1,4 @@
-import { TestStatus } from '@prisma/client';
+import { TestStatus } from "src/common/enums/enums";
 
 export interface DiffResult {
   status: TestStatus;

@@ -19,7 +19,6 @@ import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { ApiBearerAuth, ApiTags, ApiSecurity, ApiOkResponse } from '@nestjs/swagger';
 import { CreateBuildDto } from './dto/build-create.dto';
 import { ApiGuard } from '../auth/guards/api.guard';
-import { Build, Role } from '@prisma/client';
 import { BuildDto } from './dto/build.dto';
 import { MixedGuard } from '../auth/guards/mixed.guard';
 import { PaginatedBuildDto } from './dto/build-paginated.dto';
@@ -27,6 +26,8 @@ import { ModifyBuildDto } from './dto/build-modify.dto';
 import { ProjectsService } from '../projects/projects.service';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../shared/roles.decorator';
+import { Role } from 'src/common/enums/enums';
+import { Build } from 'src/common/interfaces/build.interface';
 
 @Controller('builds')
 @ApiTags('builds')

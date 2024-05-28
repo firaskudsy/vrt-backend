@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Build, TestStatus } from '@prisma/client';
 import { TestRunDto } from 'src/test-runs/dto/testRun.dto';
 
 export class BuildDto {
@@ -41,7 +40,7 @@ export class BuildDto {
   @ApiProperty()
   merge: boolean;
 
-  constructor(build: Build & { testRuns?: TestRunDto[] }) {
+  constructor(build: any & { testRuns?: TestRunDto[] }) {
     this.id = build.id;
     this.ciBuildId = build.ciBuildId;
     this.number = build.number;
@@ -65,18 +64,18 @@ export class BuildDto {
       // calculate statistics
       build.testRuns.forEach((testRun) => {
         switch (testRun.status) {
-          case TestStatus.autoApproved:
-          case TestStatus.approved:
-          case TestStatus.ok: {
+          case 'autoApproved':
+          case 'approved':
+          case 'ok': {
             this.passedCount += 1;
             break;
           }
-          case TestStatus.unresolved:
-          case TestStatus.new: {
+          case 'unresolved':
+          case 'new': {
             this.unresolvedCount += 1;
             break;
           }
-          case TestStatus.failed: {
+          case 'failed': {
             this.failedCount += 1;
             break;
           }

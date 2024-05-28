@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TestStatus } from '@prisma/client';
 import Pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { StaticService } from '../../../shared/static/static.service';
@@ -9,6 +8,7 @@ import { DIFF_DIMENSION_RESULT, EQUAL_RESULT, NO_BASELINE_RESULT } from '../cons
 import { ImageComparator } from '../image-comparator.interface';
 import { ImageCompareInput } from '../ImageCompareInput';
 import { PixelmatchConfig } from './pixelmatch.types';
+import { TestStatus } from 'src/common/enums/enums';
 
 export const DEFAULT_CONFIG: PixelmatchConfig = { threshold: 0.1, ignoreAntialiasing: true };
 

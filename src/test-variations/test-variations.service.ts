@@ -1,6 +1,4 @@
 import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { TestVariation, Baseline, Build, TestRun, User } from '@prisma/client';
 import { StaticService } from '../shared/static/static.service';
 import { BuildsService } from '../builds/builds.service';
 import { TestRunsService } from '../test-runs/test-runs.service';
@@ -10,13 +8,17 @@ import { BuildDto } from 'src/builds/dto/build.dto';
 import { getTestVariationUniqueData } from '../utils';
 import { TestVariationUpdateDto } from './dto/test-variation-update.dto';
 import { BaselineDataDto } from 'src/shared/dto/baseline-data.dto';
-
+import { Pool} from 'pg';
+import { Baseline } from 'src/common/interfaces/baseline.interface';
+import { Build } from 'src/common/interfaces/build.interface';
+import { TestVariation } from 'src/common/interfaces/testvariation.interface';
+import { Project } from 'src/common/interfaces/project.interface';
 @Injectable()
 export class TestVariationsService {
   private readonly logger = new Logger(TestVariationsService.name);
 
   constructor(
-    private prismaService: PrismaService,
+    @Inject('DB_CONNECTION') private readonly pool: Pool,
     private staticService: StaticService,
     @Inject(forwardRef(() => TestRunsService))
     private testRunsService: TestRunsService,
@@ -26,50 +28,105 @@ export class TestVariationsService {
 
   async getDetails(
     id: string
-  ): Promise<TestVariation & { baselines: (Baseline & { testRun: TestRun; user: User })[] }> {
-    return this.prismaService.testVariation.findUnique({
-      where: { id },
-      include: {
-        baselines: {
-          include: {
-            testRun: true,
-            user: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-      },
-    });
+  ): Promise<TestVariation> {
+
+     const query = `
+      SELECT
+        tv.*,
+        json_agg(
+          json_build_object(
+            'id', b.id,
+            'baselineName', b.baselineName,
+            'testVariationId', b.testVariationId,
+            'testRunId', b.testRunId,
+            'userId', b.userId,
+            'updatedAt', b.updatedAt,
+            'createdAt', b.createdAt,
+            'testRun', tr,
+            'user', u
+          )
+        ORDER BY b.createdAt DESC
+        ) AS baselines
+      FROM
+        "TestVariation" tv
+      LEFT JOIN
+        "BaseLine" b ON tv.id = b.testVariationId
+      LEFT JOIN
+        "TestRun" tr ON b.testRunId = tr.id
+      LEFT JOIN
+        "User" u ON b.userId = u.id
+      WHERE
+        tv.id = $1
+      GROUP BY
+        tv.id;
+    `;
+    const details = (await this.pool.query(query, [id]))?.rows[0] as TestVariation;
+    return details;
   }
 
   async findUnique(data: BaselineDataDto & { projectId: string }): Promise<TestVariation | null> {
-    return this.prismaService.testVariation.findUnique({
-      where: {
-        projectId_name_browser_device_os_viewport_customTags_branchName: {
-          projectId: data.projectId,
-          name: data.name,
-          browser: data.browser,
-          device: data.device,
-          os: data.os,
-          viewport: data.viewport,
-          customTags: data.customTags,
-          branchName: data.branchName,
-        },
-      },
-    });
+     const query = `
+      SELECT *
+      FROM "TestVariation"
+      WHERE projectId = $1
+        AND name = $2
+        AND browser = $3
+        AND device = $4
+        AND os = $5
+        AND viewport = $6
+        AND customTags = $7
+        AND branchName = $8
+      LIMIT 1;
+    `;
+    const values = [
+      data.projectId,
+      data.name,
+      data.browser,
+      data.device,
+      data.os,
+      data.viewport,
+      data.customTags,
+      data.branchName,
+    ];
+
+    const result = (await this.pool.query(query, values))?.rows[0] as TestVariation;
+    return result;
+
   }
 
   async update(id: string, data: TestVariationUpdateDto, testRunId?: string): Promise<TestVariation> {
-    return this.prismaService.testVariation.update({
-      where: { id },
-      data: {
-        baselineName: data.baselineName,
-        ignoreAreas: data.ignoreAreas,
-        comment: data.comment,
-        testRuns: testRunId ? { connect: { id: testRunId } } : undefined,
-      },
-    });
+
+    const updateTestVariationQuery = `
+      UPDATE "TestVariation"
+      SET baselineName = $2,
+          ignoreAreas = $3,
+          comment = $4
+      WHERE id = $1;
+    `;
+    const updateTestRunQuery = `
+      UPDATE "TestRun"
+      SET testVariationId = $1
+      WHERE id = $2;
+    `;
+
+    const values = [
+      id,
+      data.baselineName,
+      data.ignoreAreas,
+      data.comment
+    ];
+
+    // Execute the update query for test_variation
+    const updatedTestVariation = await this.pool.query(updateTestVariationQuery, values);
+
+    // If testRunId is provided, execute the update query for test_run
+    if (testRunId) {
+      await this.pool.query(updateTestRunQuery, [id, testRunId]);
+    }
+
+
+    return updatedTestVariation;
+
   }
 
   /**
@@ -82,7 +139,7 @@ export class TestVariationsService {
   async find(
     createTestRequestDto: BaselineDataDto & { projectId: string; sourceBranch?: string }
   ): Promise<TestVariation | null> {
-    const project = await this.prismaService.project.findUnique({ where: { id: createTestRequestDto.projectId } });
+    const project = (await this.pool.query('SELECT * FROM "Project" WHERE id = $1', [createTestRequestDto.projectId]))?.rows[0] as Project | null;
     const mainBranch = createTestRequestDto.sourceBranch ?? project.mainBranchName;
 
     const [mainBranchTestVariation, currentBranchTestVariation] = await Promise.all([
@@ -116,21 +173,68 @@ export class TestVariationsService {
   /**
    * Creates empty test variation (no baseline)
    */
-  create({
+  async create({
     testRunId,
     createTestRequestDto,
   }: {
     testRunId?: string;
     createTestRequestDto: Omit<CreateTestRequestDto, 'buildId' | 'ignoreAreas'>;
   }): Promise<TestVariation> {
-    return this.prismaService.testVariation.create({
-      data: {
-        project: { connect: { id: createTestRequestDto.projectId } },
-        testRuns: testRunId ? { connect: { id: testRunId } } : undefined,
-        branchName: createTestRequestDto.branchName,
-        ...getTestVariationUniqueData(createTestRequestDto),
-      },
-    });
+    try {
+      await this.pool.query('BEGIN');
+
+      // Extract unique data for test variation
+      const uniqueData = getTestVariationUniqueData(createTestRequestDto);
+
+      const insertTestVariationQuery = `
+        INSERT INTO test_variation (
+          projectId,
+          branchName,
+          browser,
+          device,
+          os,
+          viewport,
+          customTags,
+          baselineName,
+          ignoreAreas,
+          comment,
+          createdAt,
+          updatedAt
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+        )
+        RETURNING *;
+      `;
+
+      const testVariationValues = [
+        createTestRequestDto.projectId,
+        createTestRequestDto.branchName,
+        uniqueData.browser,
+        uniqueData.device,
+        uniqueData.os,
+        uniqueData.viewport,
+        uniqueData.customTags,
+      ];
+
+      const res = await this.pool.query(insertTestVariationQuery, testVariationValues);
+      const newTestVariation = res.rows[0];
+
+      if (testRunId) {
+        const insertTestRunRelationQuery = `
+          INSERT INTO test_run_test_variation (testVariationId, testRunId)
+          VALUES ($1, $2);
+        `;
+        await this.pool.query(insertTestRunRelationQuery, [newTestVariation.id, testRunId]);
+      }
+
+      await this.pool.query('COMMIT');
+      return newTestVariation;
+    } catch (err) {
+      await this.pool.query('ROLLBACK');
+      throw err;
+    } finally {
+      this.pool.release();
+    }
   }
 
   async addBaseline({
@@ -143,30 +247,43 @@ export class TestVariationsService {
     userId: string;
     testRunId: string;
     baselineName: string;
-  }): Promise<TestVariation> {
-    return this.prismaService.testVariation.update({
-      where: { id },
-      data: {
-        baselineName,
-        baselines: {
-          create: {
-            baselineName,
-            testRun: {
-              connect: {
-                id: testRunId,
-              },
-            },
-            user: userId
-              ? {
-                  connect: {
-                    id: userId,
-                  },
-                }
-              : undefined,
-          },
-        },
-      },
-    });
+  }): Promise<any> {
+const updateTestVariationQuery = `
+      UPDATE "TestVariation"
+      SET baselineName = $2
+      WHERE id = $1
+      RETURNING *;
+    `;
+
+    const createBaselineQuery = `
+      INSERT INTO "BaseLine" (baselineName, testVariationId, testRunId, userId, createdAt, updatedAt)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING *;
+    `;
+
+    const valuesForUpdate = [
+      id,
+      baselineName
+    ];
+
+    // Execute the update query for test_variation and return the updated record
+    const updatedTestVariation = (await this.pool.query(updateTestVariationQuery, valuesForUpdate))?.rows[0] as TestVariation;
+
+    const valuesForInsert = [
+      baselineName,
+      id,
+      testRunId,
+      userId || null
+    ];
+
+    // Execute the insert query for baseline and return the inserted record
+    const newBaseline = (await this.pool.query(createBaselineQuery, valuesForInsert))?.rows[0] as Baseline;
+
+    // Return both updated test variation and the new baseline
+    return {
+      ...updatedTestVariation,
+      newBaseline
+    };
   }
 
   async merge(projectId: string, fromBranch: string, toBranch: string): Promise<BuildDto> {
@@ -177,9 +294,9 @@ export class TestVariationsService {
     });
 
     // find source branch variations
-    const testVariations: TestVariation[] = await this.prismaService.testVariation.findMany({
-      where: { projectId, branchName: fromBranch },
-    });
+    const testVariations: TestVariation[] = await (this.pool.query('SELECT * FROM "TestVariation" WHERE project_id = $1 AND branch_name = $2', [projectId, fromBranch]))?.rows as TestVariation[];
+
+
 
     // compare source to destination branch variations
     for (const sourceBranchTestVariation of testVariations) {
@@ -229,23 +346,17 @@ export class TestVariationsService {
       await this.deleteBaseline(baseline);
     }
 
-    // disconnect TestRuns
-    // workaround due to  https://github.com/prisma/prisma/issues/2810
-    await this.prismaService
-      .$executeRaw`UPDATE "public"."TestRun" SET "testVariationId" = NULL::text WHERE "testVariationId" = ${id}`;
+  
 
+    await this.pool.query('UPDATE "public"."TestRun" SET "testVariationId" = NULL::text WHERE "testVariationId" = $1', [id]);
     // delete TestVariation
-    return this.prismaService.testVariation.delete({
-      where: { id },
-    });
+    return await this.pool.query('DELETE FROM "TestVariation" WHERE id = $1', [id]);
   }
 
   async deleteBaseline(baseline: Baseline): Promise<Baseline> {
     this.logger.debug(`Going to remove Baseline ${baseline.id}`);
 
     this.staticService.deleteImage(baseline.baselineName);
-    return this.prismaService.baseline.delete({
-      where: { id: baseline.id },
-    });
+    return await this.pool.query('DELETE FROM "BaseLine" WHERE id = $1', [baseline.id]);
   }
 }

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TestRun, TestStatus } from '@prisma/client';
+import { TestStatus } from 'src/common/enums/enums';
+import { TestRun } from 'src/common/interfaces/testrun.interface';
 
 export class TestRunDto {
   @ApiProperty()
@@ -14,7 +15,12 @@ export class TestRunDto {
   diffPercent: number;
   @ApiProperty()
   diffTollerancePercent: number;
-  @ApiProperty()
+  @ApiProperty(
+    {
+      enum: TestStatus,
+      enumName: 'TestStatus',
+    }
+  )
   status: TestStatus;
   @ApiProperty()
   testVariationId: string;

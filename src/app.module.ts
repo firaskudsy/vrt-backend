@@ -7,7 +7,6 @@ import { BuildsModule } from './builds/builds.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TestRunsModule } from './test-runs/test-runs.module';
 import { TestVariationsModule } from './test-variations/test-variations.module';
-import { PrismaService } from './prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { HttpExceptionFilter } from './http-exception.filter';
@@ -15,9 +14,11 @@ import { CompareModule } from './compare/compare.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TerminusModule } from '@nestjs/terminus';
 import { HealthController } from './health/health.controller';
+import { DatabaseModule } from './common/database/database.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     ConfigModule.forRoot({ isGlobal: true }),
     CacheModule.register(),
     ScheduleModule.forRoot(),
@@ -32,7 +33,6 @@ import { HealthController } from './health/health.controller';
   ],
   providers: [
     AppService,
-    PrismaService,
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,

@@ -3,5 +3,34 @@
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
         "**/.hg/store/**": true
-    }
+    },
+    "workbench.colorCustomizations": {
+        "activityBar.activeBackground": "#29b0ea",
+        "activityBar.background": "#29b0ea",
+        "activityBar.foreground": "#15202b",
+        "activityBar.inactiveForeground": "#15202b99",
+        "activityBarBadge.background": "#fce2f4",
+        "activityBarBadge.foreground": "#15202b",
+        "commandCenter.border": "#e7e7e799",
+        "editorGroup.border": "#29b0ea",
+        "panel.border": "#29b0ea",
+        "sash.hoverBorder": "#29b0ea",
+        "sideBar.border": "#29b0ea",
+        "statusBar.background": "#1495cc",
+        "statusBar.border": "#1495cc",
+        "statusBar.debuggingBackground": "#cc4b14",
+        "statusBar.debuggingBorder": "#cc4b14",
+        "statusBar.debuggingForeground": "#e7e7e7",
+        "statusBar.foreground": "#e7e7e7",
+        "statusBarItem.hoverBackground": "#29b0ea",
+        "statusBarItem.remoteBackground": "#1495cc",
+        "statusBarItem.remoteForeground": "#e7e7e7",
+        "tab.activeBorder": "#29b0ea",
+        "titleBar.activeBackground": "#1495cc",
+        "titleBar.activeForeground": "#e7e7e7",
+        "titleBar.border": "#1495cc",
+        "titleBar.inactiveBackground": "#1495cc99",
+        "titleBar.inactiveForeground": "#e7e7e799"
+    },
+    "peacock.color": "#1495cc"
 }

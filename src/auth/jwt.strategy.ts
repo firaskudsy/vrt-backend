@@ -1,15 +1,16 @@
 import { ExtractJwt, Strategy, VerifiedCallback } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { JwtPayload } from './jwt-payload.model';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
+import { Pool } from 'pg';
+import { User } from 'src/common/interfaces/user.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
-    private prismaService: PrismaService
+    @Inject('DB_CONNECTION') private readonly pool: Pool
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -19,10 +20,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload, done: VerifiedCallback) {
-    const user = await this.prismaService.user.findUnique({
-      where: { email: payload.email },
-    });
 
+    const user = (await this.pool.query('SELECT * FROM "User" WHERE email = $1', [payload.email]))?.rows[0] as User | undefined;
     if (!user) {
       return done(new HttpException({}, HttpStatus.UNAUTHORIZED), false);
     }

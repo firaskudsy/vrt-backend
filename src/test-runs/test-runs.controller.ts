@@ -25,7 +25,6 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
-import { Role, TestRun, TestStatus, User } from '@prisma/client';
 import { TestRunsService } from './test-runs.service';
 import { TestRunResultDto } from './dto/testRunResult.dto';
 import { ApiGuard } from '../auth/guards/api.guard';
@@ -39,6 +38,9 @@ import { UpdateTestRunDto } from './dto/update-test.dto';
 import { CurrentUser } from '../shared/current-user.decorator';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../shared/roles.decorator';
+import { Role, TestStatus } from 'src/common/enums/enums';
+import { TestRun } from 'src/common/interfaces/testrun.interface';
+import { User } from 'src/common/interfaces/user.interface';
 
 /* eslint-disable @darraghor/nestjs-typed/injectable-should-be-provided */
 @ApiTags('test-runs')
@@ -60,7 +62,7 @@ export class TestRunsController {
   @ApiOkResponse({ type: TestRunDto })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  getDetails(@Param('id', new ParseUUIDPipe()) id: string): Promise<TestRunDto> {
+  getDetails(@Param('id', new ParseUUIDPipe()) id: string): Promise<any> {
     return this.testRunsService.findOne(id);
   }
 

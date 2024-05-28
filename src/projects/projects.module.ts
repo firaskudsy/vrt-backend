@@ -3,11 +3,13 @@ import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
 import { BuildsModule } from '../builds/builds.module';
 import { TestVariationsModule } from '../test-variations/test-variations.module';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseModule } from 'src/common/database/database.module';
 
 @Module({
-  imports: [forwardRef(() => BuildsModule), forwardRef(() => TestVariationsModule)],
-  providers: [ProjectsService, PrismaService],
+  imports: [
+    DatabaseModule,
+    forwardRef(() => BuildsModule), forwardRef(() => TestVariationsModule)],
+  providers: [ProjectsService],
   controllers: [ProjectsController],
   exports: [ProjectsService],
 })

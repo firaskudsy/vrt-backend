@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TestStatus } from '@prisma/client';
 import { PNG } from 'pngjs';
 import { StaticService } from '../../../shared/static/static.service';
 import { DiffResult } from '../../../test-runs/diffResult';
@@ -9,6 +8,7 @@ import { ImageCompareInput } from '../ImageCompareInput';
 import { LookSameResult, LooksSameConfig } from './looks-same.types';
 import looksSame from 'looks-same';
 import { DIFF_DIMENSION_RESULT, EQUAL_RESULT, NO_BASELINE_RESULT } from '../consts';
+import { TestStatus } from 'src/common/enums/enums';
 
 export const DEFAULT_CONFIG: LooksSameConfig = {
   strict: false,

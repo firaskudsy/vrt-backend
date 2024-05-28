@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Put, Delete, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Put, Delete, Patch, Inject } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ApiOkResponse, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserLoginResponseDto } from './dto/user-login-response.dto';
@@ -8,12 +8,13 @@ import { UserDto } from './dto/user.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { UserLoginRequestDto } from './dto/user-login-request.dto';
 import { CurrentUser } from '../shared/current-user.decorator';
-import { Role, User } from '@prisma/client';
 import { RoleGuard } from '../auth/guards/role.guard';
 import { Roles } from '../shared/roles.decorator';
-import { PrismaService } from '../prisma/prisma.service';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { Logger } from '@nestjs/common';
+import { Role } from 'src/common/enums/enums';
+import { User } from 'src/common/interfaces/user.interface';
+import { Pool } from 'pg';
 
 @Controller('users')
 @ApiTags('users')
@@ -22,7 +23,7 @@ export class UsersController {
 
   constructor(
     private usersService: UsersService,
-    private prismaService: PrismaService
+    @Inject('DB_CONNECTION') private readonly pool: Pool
   ) {}
 
   @Post('register')
@@ -67,7 +68,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(Role.admin)
   async userList(): Promise<UserDto[]> {
-    const users = await this.prismaService.user.findMany();
+    const users = await (this.pool.query('SELECT * FROM "User"'))?.rows as User[] | [];
+
     return users.map((user) => new UserDto(user));
   }
 

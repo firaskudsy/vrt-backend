@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsUUID, IsString, IsNumber, IsBoolean, IsEnum, IsJSON, IsDate } from 'class-validator';
-import { ImageComparison, Project } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { ImageComparison } from 'src/common/enums/enums';
+import { Project } from 'src/common/interfaces/project.interface';
 
 export class ProjectDto implements Project {
   @ApiProperty()
@@ -34,7 +35,12 @@ export class ProjectDto implements Project {
   @IsBoolean()
   autoApproveFeature: boolean;
 
-  @ApiProperty()
+  @ApiProperty(
+    {
+      enum: ImageComparison,
+      enumName: 'ImageComparison',
+    }
+  )
   @IsEnum(ImageComparison)
   imageComparison: ImageComparison;
 

@@ -1,13 +1,13 @@
-import { ExecutionContext, Injectable, CanActivate } from '@nestjs/common';
-import { Role, User } from '@prisma/client';
+import { ExecutionContext, Injectable, CanActivate, Inject } from '@nestjs/common';
 import { Request } from 'express';
-import { PrismaService } from '../../prisma/prisma.service';
 import { Reflector } from '@nestjs/core';
-
+import { Role } from 'src/common/enums/enums';
+import { User } from 'src/common/interfaces/user.interface';
+import { Pool } from 'pg';
 @Injectable()
 export class RoleGuard implements CanActivate {
   constructor(
-    private readonly prismaService: PrismaService,
+    @Inject('DB_CONNECTION') private readonly pool: Pool,
     private reflector: Reflector
   ) {}
 
@@ -42,8 +42,7 @@ export class RoleGuard implements CanActivate {
       return request.user as User;
     }
 
-    return this.prismaService.user.findUnique({
-      where: { apiKey: request.header('apiKey') },
-    });
+    return this.pool.query('SELECT * FROM "User" WHERE apiKey = $1', [request.header('apiKey')])
+      .then(result => result.rows[0]);
   };
 }

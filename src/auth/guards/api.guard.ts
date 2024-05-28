@@ -1,17 +1,18 @@
-import { ExecutionContext, Injectable, CanActivate, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, Injectable, CanActivate, UnauthorizedException, Inject } from '@nestjs/common';
 import { Request } from 'express';
-import { PrismaService } from '../../prisma/prisma.service';
-
+import { Pool } from 'pg';
 @Injectable()
 export class ApiGuard implements CanActivate {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    @Inject('DB_CONNECTION') private readonly pool: Pool) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
     try {
-      const user = await this.prismaService.user.findUnique({
-        where: { apiKey: request.header('apiKey') },
-      });
+      const client = await this.pool.connect();
+      const result = await client.query('SELECT * FROM "User" WHERE apiKey = $1', [request.header('apiKey')]);
+      const user = result.rows[0];
+      client.release();
       return !!user;
     } catch {
       throw new UnauthorizedException();

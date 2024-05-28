@@ -1,4 +1,5 @@
-import { TestRun, TestVariation } from '@prisma/client';
+import { TestRun } from 'src/common/interfaces/testrun.interface';
+import { TestVariation } from 'src/common/interfaces/testvariation.interface';
 import { BaselineDataDto } from 'src/shared/dto/baseline-data.dto';
 
 export const getTestVariationUniqueData = (

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Role, User } from '@prisma/client';
+import { Role } from 'src/common/enums/enums';
+import { User } from 'src/common/interfaces/user.interface';
 
 export class UserDto {
   @ApiProperty()
@@ -17,7 +18,12 @@ export class UserDto {
   @ApiProperty()
   readonly apiKey: string;
 
-  @ApiProperty()
+  @ApiProperty(
+    {
+      enum: Role,
+      enumName: 'Role',
+    },
+  )
   readonly role: Role;
 
   constructor(user: User) {

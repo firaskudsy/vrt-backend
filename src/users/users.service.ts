@@ -7,6 +7,7 @@ import { AuthService } from '../auth/auth.service';
 import { UserLoginRequestDto } from './dto/user-login-request.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { Pool } from 'pg';
+import { User } from 'src/common/interfaces/user.interface';
 
 @Injectable()
 export class UsersService {
@@ -67,7 +68,7 @@ export class UsersService {
   }
 
   async get(id: string): Promise<UserDto> {
-    const user = await this.findOne(id);
+    const user = await this.findOne(id) as User;
     return new UserDto(user);
   }
 
@@ -104,7 +105,7 @@ export class UsersService {
     return new UserLoginResponseDto(user, token);
   }
 
-  async  (user: User): Promise<string> {
+  async  generateNewApiKey(user: User): Promise<string> {
     const newApiKey = this.authService.generateApiKey();
 
     const query = `

@@ -1,4 +1,4 @@
-import { TestStatus } from '@prisma/client';
+import { TestStatus } from 'src/common/enums/enums';
 import { DiffResult } from 'src/test-runs/diffResult';
 
 export const NO_BASELINE_RESULT: DiffResult = {
