@@ -1,23 +1,20 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UserLoginResponseDto } from './dto/user-login-response.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { User } from '@prisma/client';
 import { UserDto } from './dto/user.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { AuthService } from '../auth/auth.service';
 import { UserLoginRequestDto } from './dto/user-login-request.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
-import { Logger } from '@nestjs/common';
+import { Pool } from 'pg';
 
 @Injectable()
 export class UsersService {
-  private readonly logger: Logger = new Logger(UsersService.name);
+  private readonly pool: Pool;
 
-  constructor(
-    private prismaService: PrismaService,
-    private authService: AuthService
-  ) {}
+  constructor(private authService: AuthService) {
+    this.pool = new Pool();
+  }
 
   async create(createUserDto: CreateUserDto): Promise<UserLoginResponseDto> {
     const user = {
@@ -28,20 +25,45 @@ export class UsersService {
       password: await this.authService.encryptPassword(createUserDto.password),
     };
 
-    const userData = await this.prismaService.user.create({
-      data: user,
-    });
+    const query = `
+      INSERT INTO "User" (email, firstName, lastName, apiKey, password)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+    const values = [user.email, user.firstName, user.lastName, user.apiKey, user.password];
+
+    const { rows } = await this.pool.query(query, values);
+    const userData = rows[0];
 
     return new UserLoginResponseDto(userData, null);
   }
 
-  async findOne(id: string): Promise<User> {
-    return this.prismaService.user.findUnique({ where: { id } });
+  async findOne(id: string): Promise<UserDto> {
+    const query = `
+      SELECT *
+      FROM "User"
+      WHERE id = $1
+    `;
+    const values = [id];
+
+    const { rows } = await this.pool.query(query, values);
+    const user = rows[0];
+
+    return new UserDto(user);
   }
 
-  async delete(id: string): Promise<User> {
-    this.logger.debug(`Removing User: ${id}`);
-    return this.prismaService.user.delete({ where: { id } });
+  async delete(id: string): Promise<UserDto> {
+    const query = `
+      DELETE FROM "User"
+      WHERE id = $1
+      RETURNING *
+    `;
+    const values = [id];
+
+    const { rows } = await this.pool.query(query, values);
+    const user = rows[0];
+
+    return new UserDto(user);
   }
 
   async get(id: string): Promise<UserDto> {
@@ -51,53 +73,76 @@ export class UsersService {
 
   async assignRole(data: AssignRoleDto): Promise<UserDto> {
     const { id, role } = data;
-    this.logger.debug(`Assigning role ${role} to User: ${id}`);
 
-    const user = await this.prismaService.user.update({
-      where: { id },
-      data: { role },
-    });
+    const query = `
+      UPDATE "User"
+      SET role = $1
+      WHERE id = $2
+      RETURNING *
+    `;
+    const values = [role, id];
+
+    const { rows } = await this.pool.query(query, values);
+    const user = rows[0];
+
     return new UserDto(user);
   }
 
   async update(id: string, userDto: UpdateUserDto): Promise<UserLoginResponseDto> {
-    const user = await this.prismaService.user.update({
-      where: { id },
-      data: {
-        email: userDto.email,
-        firstName: userDto.firstName,
-        lastName: userDto.lastName,
-      },
-    });
+    const query = `
+      UPDATE "User"
+      SET email = $1, firstName = $2, lastName = $3
+      WHERE id = $4
+      RETURNING *
+    `;
+    const values = [userDto.email, userDto.firstName, userDto.lastName, id];
+
+    const { rows } = await this.pool.query(query, values);
+    const user = rows[0];
     const token = this.authService.signToken(user);
+
     return new UserLoginResponseDto(user, token);
   }
 
-  async generateNewApiKey(user: User): Promise<string> {
+  async  (user: User): Promise<string> {
     const newApiKey = this.authService.generateApiKey();
-    await this.prismaService.user.update({
-      where: { id: user.id },
-      data: {
-        apiKey: newApiKey,
-      },
-    });
+
+    const query = `
+      UPDATE "User"
+      SET apiKey = $1
+      WHERE id = $2
+    `;
+    const values = [newApiKey, user.id];
+
+    await this.pool.query(query, values);
+
     return newApiKey;
   }
 
   async changePassword(user: User, newPassword: string): Promise<boolean> {
-    await this.prismaService.user.update({
-      where: { id: user.id },
-      data: {
-        password: await this.authService.encryptPassword(newPassword),
-      },
-    });
+    const query = `
+      UPDATE "User"
+      SET password = $1
+      WHERE id = $2
+    `;
+    const values = [await this.authService.encryptPassword(newPassword), user.id];
+
+    await this.pool.query(query, values);
+
     return true;
   }
 
   async login(userLoginRequestDto: UserLoginRequestDto) {
-    const user = await this.prismaService.user.findUnique({
-      where: { email: userLoginRequestDto.email },
-    });
+    const query = `
+      SELECT *
+      FROM "User"
+      WHERE email = $1
+    `;
+    const values = [userLoginRequestDto.email];
+
+    const { rows } = await this.pool.query(query, values);
+    const user = rows[0];
+
     if (!user) {
       throw new HttpException('Invalid email or password.', HttpStatus.BAD_REQUEST);
     }
